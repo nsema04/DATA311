@@ -1,0 +1,87 @@
+---
+title: "Assignment 0"
+subtitle: "DATA 311"
+author: "Noah Semashkewich - 53882783"
+toc: true
+format: 
+  html:
+    embed-resources: true
+    df-print: paged
+editor: visual
+---
+
+# Introduction
+
+Hello, my name is **Noah Semashkewich**. I am a **third** year student at **the University of British Columbia**. I am currently taking a Bachelor of Science with a major in *computer science*, and a minor in *data science*. I love to learn about computers and learn how to build new project all the time.
+
+My favorite hobbies include **playing** and **creating** video games, listening to a wide variety of music and **collecting records**, as well as **hiking and exploring outdoors**.
+
+![This is a picture from a concert in Vancouver I attended for my birthday with my girlfriend. It was very exciting. The artist's name is Future.](future.JPG)
+
+## Data Wrangling
+
+```{r}
+setwd("~/DATA311/assignment0")
+sales = read.csv("sales_data.csv")
+
+#6. Displaying first few rows of the data
+head(sales)
+# Displaying data structure
+str(sales)
+
+#7. Removing duplicate rows from the dataset
+unique(sales)
+
+#8. Checking for missing values (none)
+which(is.na(sales))
+
+#9. Filtering dataset to display only sales made in New York
+sales_ny = sales[sales$Store.Location == "New York", ]
+sales_ny
+
+#10. Filtering data to find the date when highest total was recorded
+sales_by_date = aggregate(Total.Sales ~ Date, data = sales_ny, sum)
+max_sale_date = sales_by_date[which.max(sales_by_date$Total.Sales), ]
+max_sale_date
+
+#11. Determining most frequently used payment method by customers
+pm_count = table(sales_ny$Payment.Method)
+most_frequent_pm = names(pm_count)[which.max(pm_count)]
+most_frequent_pm
+```
+
+## Data Visualization
+
+```{r fig.width=5, fig.height=6}
+#12. Histogram of Customer Age
+hist(sales$Customer.Age,
+     main = "Histogram of Customer Age",
+     xlab = "Customer Age",
+     col = "lightblue",
+     border = "black",
+     las = 1)
+```
+
+```{r}
+#| label: fig-scatter-plot
+#| fig-cap: "Scatter plot of the relationship between Quantity Sold and Price"
+#13. Scatter plot of Quantity Sold and Price 
+plot(sales$Quantity.Sold, sales$Price,
+     xlab = "Quantity Sold",
+     ylab = "Price",
+     main = "Relationship between Quantity Sold and Price",
+     pch = 19,
+     col = "blue")
+```
+
+#14. Analysis of the relationship between quantity sold and price
+
+Based on the scatter plot, we can observe the following characteristics between price and quantity sold.
+
+-   Trend: There is no clear linear trend between price and quantity sold. The plot shows a varied distribution of data points without a consistent upward or downward pattern. This suggests changes in prices to not consistently affect quantity sold.
+
+-   Clusters: The data points are distributed across a range of prices and quantities sold. Products with lower prices have a higher range of quantities sold, while high-priced items show lower quantities sold.
+
+-   Outliters: There are several outliers where high priced items are sold in relatively small quantities. These outliers may represent conditions affecting sales.
+
+In summary, the scatter plot @fig-scatter-plot shows that while there is some variability, there is no strong correlation of a relationship between quantity sold and price.
