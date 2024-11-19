@@ -1,0 +1,311 @@
+---
+title: "Assignment 3"
+subtitle: "DATA 311"
+author: "Noah Semashkewich - 53882783"
+toc: true
+format: 
+  html:
+    embed-resources: true
+    df-print: paged
+editor: visual
+---
+
+# Assignment 3
+
+## Exploratory Data Analysis
+
+### Exercise 1)
+
+```{r}
+datasalaries = read.csv("datasalaries.csv")
+
+datasalaries = na.omit(datasalaries)
+datasalaries$company = as.factor(datasalaries$company)
+datasalaries$gender = as.factor(datasalaries$gender)
+datasalaries$Race = as.factor(datasalaries$Race)
+datasalaries$Education = as.factor(datasalaries$Education)
+
+str(datasalaries)
+```
+
+### Exercise 2)
+
+```{r}
+set.seed(5388278) 
+
+sampleSize = floor(0.5 * nrow(datasalaries))
+set = sample(seq_len(nrow(datasalaries)), size = sampleSize)
+train_set = datasalaries[set, ]
+test_set = datasalaries[-set, ]
+
+dim(train_set)  
+dim(test_set)  
+```
+
+## Decision Trees
+
+### Exercise 3)
+
+```{r}
+library(rpart)
+library(rpart.plot)
+
+decision_tree = rpart(salary ~ ., data = train_set, method = "anova")
+
+rpart.plot(decision_tree)
+```
+
+Interpretation of the first three nodes:
+
+-   **Root Node**: The first split in the tree is based on `yearsofexperience < 9`. The root node tells us that the average salary is \$242,000. If the person has less than 9 years of experience, they fall under the left node. If not, it moves to the right child node, predicting a higher average salary.
+
+-   **Left Node (years of experience \< 9)**: This node splits based on `company`, specifically checking if the employee works for Amazon, Microsoft, or Oracle. If so, it predicts a salary of about 202,000 (67% of people). If not, it branches further down to capture variations within other companies.
+
+-   **Right Node (years of experience \>= 9)**: For employees with more than 9 years of experience, the split depends on `company`, separating Amazon, Apple, Google, Microsoft, and Oracle from others. If they work at one of these companies, the predicted salary is 324,000; otherwise, the tree branches further down. This group contains 33% of people.
+
+### Exercise 4)
+
+```{r}
+tree_prediction = predict(decision_tree, newdata = test_set)
+
+# Calculate residuals
+residuals = tree_prediction - test_set$salary
+
+# Calculate RMSE
+rmse = sqrt(mean(residuals^2))
+print(rmse)
+
+```
+
+This tells us that our prediction is off of the actual prediction by about \$134,729.
+
+## Random Forests
+
+### Exercise 5)
+
+```{r}
+library(randomForest)
+set.seed(51940633)
+
+randomForestModel = randomForest(salary ~ ., data = train_set, ntree = 500, importance = TRUE)
+
+print(randomForestModel)
+importance(randomForestModel)
+```
+
+### Exercise 6)
+
+```{r}
+randomForest_pred = predict(randomForestModel, newdata = test_set)
+
+randomForest_rmse = sqrt(mean((test_set$salary - randomForest_pred)^2))
+
+randomForest_mse = mean(randomForestModel$mse)
+randomForest_oob_rmse = sqrt(randomForest_mse)
+
+print(paste("Test RMSE:", randomForest_rmse))
+print(paste("OOB RMSE:", randomForest_oob_rmse))
+```
+
+The test RMSE **(120,697.61)** is slightly lower than the OOB RMSE **(132,088.96**), suggesting that the model generalizes well to the test set. This indicates that the model is not overfitting and performs reasonably well on unseen data. The small difference shows the model's robustness and its ability to capture underlying patterns without being overly tuned to the training data.
+
+### Exercise 7)
+
+```{r}
+variable_importance = importance(randomForestModel)
+
+print(variable_importance)
+```
+
+Based on the variance importance measures from the random forest model, the most important feature for prediction is **company**, with the highest **%IncMSE** (30.97) and a significant **IncNodePurity** value (1.40 × 10\^13). This suggests that "company" has the greatest influence on the model's predictions.
+
+### Exercise 8)
+
+```{r}
+set.seed(53882783*2)
+randomForestBagging = randomForest(salary ~ ., data = train_set, ntree = 500, mtry = ncol(train_set) - 1, importance = TRUE)
+
+print(randomForestBagging)
+```
+
+### Exercise 9)
+
+```{r}
+randomForestBagging_pred = predict(randomForestBagging, newdata = test_set)
+test_rmse = sqrt(mean((test_set$salary - randomForestBagging_pred)^2))
+
+oob_mse = mean(randomForestBagging$mse)
+oob_rmse = sqrt(oob_mse)
+
+print(paste("Test RMSE:", test_rmse))
+print(paste("OOB RMSE:", oob_rmse))
+  
+```
+
+The test RMSE is **128,280.73**, while the OOB RMSE is **142,244.95**. This shows that the random forest model performs better on the test data than on the OOB data, indicating that it generalizes fairly well to new, unseen data. The lower test RMSE suggests the model is making more accurate predictions when evaluated on the test set compared to the OOB estimate.
+
+### Exercise 10)
+
+```{r}
+importance(randomForestBagging)
+```
+
+Based on the importance values from the bagging model, the most important feature for predicting salary is **yearsofexperience**. This is determined by the higher value in the IncNodePurity column, which indicates the total decrease in node impurity when the feature is used to split data. In this case, "yearsofexperience" has the highest value in terms of **IncNodePurity (3.227560e+13)** compared to other features.
+
+## Regularization
+
+### Exercise 11)
+
+```{r}
+train_predMatrix = model.matrix(salary ~ ., data = train_set)[, -1]
+test_predMatrix = model.matrix(salary ~ ., data = test_set)[, -1]
+
+head(train_predMatrix)
+head(test_predMatrix)
+
+```
+
+### Exercise 12)
+
+```{r}
+library(glmnet)
+
+y = train_set$salary
+
+ridge = glmnet(train_predMatrix, y, alpha = 0)
+
+print(ridge)
+```
+
+### Exercise 13)
+
+```{r}
+library(glmnet)
+
+set.seed(53882783)
+
+cv_model = cv.glmnet(x = train_predMatrix, y = y, alpha = 0)
+
+best_lambda = cv_model$lambda.min
+
+cat("Best lambda (lowest CV estimate of error):", best_lambda, "\n")
+```
+
+### Exercise 14)
+
+```{r}
+ridge_best = glmnet(train_predMatrix, y, alpha = 0, lambda = best_lambda)
+
+ridge_pred = predict(ridge_best, newx = test_predMatrix)
+
+ridge_test_res = ridge_pred - test_set$salary
+ridge_test_rmse = sqrt(mean(ridge_test_res^2))
+print(paste("Test RMSE for Ridge regression:", ridge_test_rmse))
+```
+
+The test RMSE for the Ridge regression model using the best lambda (λ\lambdaλ = 6596.378) is 122,271.35. This represents the model's accuracy in predicting salaries on the test set, with the selected lambda minimizing the cross-validated error in Exercise 13. This suggests that the ridge model balances bias and variance well.
+
+### Exercise 15)
+
+```{r}
+lambda_1se = cv_model$lambda.1se
+ridge_1se = glmnet(train_predMatrix, y, alpha = 0, lambda = lambda_1se)
+
+ridge_1se_pred = predict(ridge_1se, newx = test_predMatrix)
+
+ridge_1se_test_res = ridge_1se_pred - test_set$salary
+ridge_1se_test_rmse = sqrt(mean(ridge_1se_test_res^2))
+
+print(paste("Lambda within 1 SE of the minimum:", lambda_1se))
+print(paste("Test RMSE for Ridge regression with lambda.1se:", ridge_1se_test_rmse))
+```
+
+The largest lambda within one standard error of the minimum error lambda.1se is associated with a test RMSE of 142,801.89. This value suggests a more regularized model, potentially with improved generalization over the lambda that achieves the absolute minimum error.
+
+### Exercise 16)
+
+```{r}
+library(glmnet)
+
+lasso_model = glmnet(train_predMatrix, y, alpha = 1)
+print(lasso_model)
+```
+
+### Exercise 17)
+
+```{r}
+library(glmnet)
+
+set.seed(53882783)
+
+lasso_cv_model = cv.glmnet(x = train_predMatrix, y, alpha = 0)
+
+lasso_best_lambda = lasso_cv_model$lambda.min
+
+print(paste("Best lambda (lowest CV estimate of error):", lasso_best_lambda))
+```
+
+### Exercise 18)
+
+```{r}
+lasso_best_model = glmnet(x = train_predMatrix, y = y, alpha = 1, lambda = lasso_cv_model$lambda.min)
+
+test_pred = predict(lasso_best_model, s = lasso_best_lambda, newx = test_predMatrix)
+
+test_y = test_set$salary
+
+test_rmse = sqrt(mean((test_pred - test_y)^2))
+
+print(paste("Test RMSE for LASSO model with best lambda:", test_rmse))
+```
+
+### Exercise 19)
+
+```{r}
+lasso_best_lambda_1se = lasso_cv_model$lambda.1se
+print(paste("Best lambda within 1 SE of minimum:", lasso_best_lambda_1se))
+
+lasso_best_model_1se = glmnet(x = train_predMatrix, y = y, alpha = 1, lambda = lasso_best_lambda_1se)
+
+lasso_test_pred_1se = predict(lasso_best_model_1se, s = lasso_best_lambda_1se, newx = test_predMatrix)
+
+lasso_test_rmse_1se = sqrt(mean((lasso_test_pred_1se - test_y)^2))
+
+print(paste("Test RMSE for LASSO model with best lambda:", lasso_test_rmse_1se))
+```
+
+### Exercise 20)
+
++------------------------------+--------------+--------------+
+| Exercise \#                  | RMSE         | OOB RMSE     |
++==============================+==============+==============+
+| 4 (Decision Tree)            | ```          | //           |
+|                              | 130630.2     |              |
+|                              | ```          |              |
++------------------------------+--------------+--------------+
+| 6 (Random Forest)            | ```          | ```          |
+|                              | 120697.6     | 132088.9     |
+|                              | ```          | ```          |
++------------------------------+--------------+--------------+
+| 8 (Random Forest w/ bagging) | ```          | ```          |
+|                              | 128280.7     | 142244.9     |
+|                              | ```          | ```          |
++------------------------------+--------------+--------------+
+| 13 (Ridge)                   | ```          | //           |
+|                              | 122271.3     |              |
+|                              | ```          |              |
++------------------------------+--------------+--------------+
+| 15 (Ridge + 1se)             | ```          | //           |
+|                              | 142801.8     |              |
+|                              | ```          |              |
++------------------------------+--------------+--------------+
+| 16 (LASSO)                   | ```          | //           |
+|                              | 123938.0     |              |
+|                              | ```          |              |
++------------------------------+--------------+--------------+
+| 19 (LASSO + 1se)             | ```          | //           |
+|                              | 149580.0     |              |
+|                              | ```          |              |
++------------------------------+--------------+--------------+
+
+Based on the table, we can see that the Random Forest model performed the best. On average, the salary predictions were off from the actual predictions by \$120,000, which is the best RMSE out of any of the other models. This suggests that the Random Forest model was the most accurate in predicting salary compared to the other models, making it the optimal choice for this dataset.
