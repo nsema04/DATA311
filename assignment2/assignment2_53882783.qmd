@@ -1,0 +1,382 @@
+---
+title: "Assignment 2"
+subtitle: "DATA 311"
+author: "Noah Semashkewich - 53882783"
+toc: true
+format: 
+  html:
+    embed-resources: true
+    df-print: paged
+editor: visual
+---
+
+# Assignment 2
+
+## **Exploratory / Pre-processing**
+
+### Exercise 1)
+
+The Telco Customer Churn prediction task is a **classification** and **supervised learning** problem.
+
+-   This is a **classification** problem because the goal is to predict whether a customer will churn (leave the service) or not, which is a binary outcome.
+
+-   This is a **supervised learning** problem because we are provided with labeled data (the target variable is whether the customer churned or not), so it is a supervised learning task.
+
+### Exercise 2)
+
+```{r}
+telco_data = read.csv("Telco-Customer-Churn.csv")
+
+telco_data$tenure = as.numeric(telco_data$tenure)
+telco_data$SeniorCitizen = as.factor(telco_data$SeniorCitizen)
+telco_data$gender = as.factor(telco_data$gender)
+telco_data$Partner = as.factor(telco_data$Partner)
+telco_data$Dependents = as.factor(telco_data$Dependents)
+telco_data$PhoneService = as.factor(telco_data$PhoneService)
+telco_data$MultipleLines = as.factor(telco_data$MultipleLines)
+telco_data$InternetService = as.factor(telco_data$InternetService)
+telco_data$OnlineSecurity = as.factor(telco_data$OnlineSecurity)
+telco_data$OnlineBackup = as.factor(telco_data$OnlineBackup)
+telco_data$DeviceProtection = as.factor(telco_data$DeviceProtection)
+telco_data$TechSupport = as.factor(telco_data$TechSupport)
+telco_data$StreamingTV = as.factor(telco_data$StreamingTV)
+telco_data$StreamingMovies = as.factor(telco_data$StreamingMovies)
+telco_data$Contract = as.factor(telco_data$Contract)
+telco_data$PaperlessBilling = as.factor(telco_data$PaperlessBilling)
+telco_data$PaymentMethod = as.factor(telco_data$PaymentMethod)
+telco_data$Churn = as.factor(telco_data$Churn)
+telco_data$TotalCharges = as.numeric(telco_data$TotalCharges)
+telco_data = na.omit(telco_data)
+
+str(telco_data)
+```
+
+### Exercise 3)
+
+```{r}
+library(ggplot2)
+ggplot(telco_data, aes(x = Churn, fill = Churn)) +
+  geom_bar() +
+  labs(title = "Churn vs No Churn", x = "Churn", y = "Frequency") +
+  scale_fill_manual(values = c("No" = "blue", "Yes" = "red")) +  # Blue for "No" and red for "Yes"
+  theme_minimal()
+
+```
+
+The plot suggests that this data set is imbalanced as there is a significantly higher amount of "No" than there is "Yes". What this implies for modeling:
+
+-   Model Bias Towards Majority Class: With most customers classified as "No", the model may lean towards predicting the majority class more often, which can overlook the minority (churners).
+
+-   Poor Recall in Minority Class: Imbalance can lead to poor recall for the minority class ("Yes"), meaning the model may not correctly identify all the customers who are likely to churn.
+
+-   Misleading Accuracy: Model may have a misleading accuracy due to the imbalance. i.e. if the model predicts "No" churn for every case, it could still achieve a very high accuracy just by predicting the majority class.
+
+### Exercise 4)
+
+```{r}
+library(ggplot2)
+
+# Function to plot churn rate by a given predictor
+churnPlot = function(predictor) {
+  ggplot(telco_data, aes(x = .data[[predictor]], fill = Churn)) +
+    geom_bar(position = "fill") +
+    labs(title = paste("Churn Rate by", predictor), x = predictor, y = "Proportion") +
+    scale_fill_manual(values = c("No" = "blue", "Yes" = "red")) + theme_minimal()
+}
+
+# List of predictors (excluding specified columns)
+predictors = colnames(telco_data)
+exclude_columns = c("customerID", "Churn","TotalCharges", "MonthlyCharges", "tenure","tenure_bins","total_bins","monthly_bins")
+predictors = predictors[!predictors %in% exclude_columns]
+
+# Looping through each predictor and generate the churn plot
+for (predictor in predictors) {
+  print(churnPlot(predictor))
+}
+```
+
+Interpretation: Based on the plots created, the significant predictors that are associated with Churn are SeniorCitizen, Partner, Dependents, InternetService, OnlineSecuirity, OnlineBackup, DeviceProtection, TechSupport, Contract, PaperlessBilling, and PaymentMethod.
+
+### Exercise 5)
+
+```{r}
+library(ggplot2)
+
+# Create binned tenure categories 
+telco_data$tenure_bins = cut(telco_data$tenure, 
+                         breaks = c(0, 12, 24, 36, 48, 60, Inf), 
+                         labels = c("0-12", "13-24", "25-36", "37-48", "49-60", "60+"),
+                         right = FALSE,   # Include the lower bound, exclude the upper
+                         include.lowest = TRUE)  # Include the lowest value
+
+# Plot
+ggplot(telco_data, aes(x = tenure_bins, fill = Churn)) +
+    geom_bar(position = "fill") +
+    labs(title = "Churn Rate by Tenure Bins", x = "Tenure (Months)", y = "Proportion") +
+    theme_minimal()
+
+# Create binned MonthlyCharges categories
+telco_data$monthly_bins = cut(telco_data$MonthlyCharges, 
+                          breaks = c(0, 25, 50, 75, 100, 125, Inf), 
+                          labels = c("0-25", "26-50", "51-75", "76-100", "101-125", "125+"),
+                          right = FALSE, 
+                          include.lowest = TRUE)
+
+# Bar plot for MonthlyCharges
+ggplot(telco_data, aes(x = monthly_bins, fill = Churn)) +
+    geom_bar(position = "fill") +
+    labs(title = "Churn Rate by Monthly Charges", x = "Monthly Charges", y = "Proportion") +
+    theme_minimal()
+
+# Create binned TotalCharges categories
+telco_data$total_bins = cut(telco_data$TotalCharges, 
+                        breaks = c(0, 1000, 2000, 3000, 4000, 5000, Inf), 
+                        labels = c("0-1000", "1001-2000", "2001-3000", "3001-4000", "4001-5000", "5000+"),
+                        right = FALSE, 
+                        include.lowest = TRUE)
+
+# Bar plot for TotalCharges
+ggplot(telco_data, aes(x = total_bins, fill = Churn)) +
+    geom_bar(position = "fill") +
+    labs(title = "Churn Rate by Total Charges", x = "Total Charges", y = "Proportion") +
+    theme_minimal()
+```
+
+Interpretation:
+
+-   **Tenure**: Customers with lower tenure (0-12 months) tend to churn more frequently than those with higher tenure, suggesting that tenure is inversely related to churn.
+
+-   **Monthly Charges**: Customers who pay higher monthly charges (76-100) seem to be associated with increased churn rates, suggesting those who pay in this range may be more likely to leave.
+
+-   **Total Charges**: Total charges show a trend where customers with lower total charges tend to churn more often, possibly indicating dissatisfaction early in the customer life cycle.
+
+After interpretation, we can see that tenure, monthly charges, and total charges are all associated with churn.
+
+### Exercise 6)
+
+```{r}
+set.seed(53882783)
+library(caTools)
+
+# 70% training, 30% test split
+sampleSize = floor(0.7 * nrow(telco_data))
+set = sample(seq_len(nrow(telco_data)), size = sampleSize)
+
+train_set = telco_data[set, ]
+test_set = telco_data[-set, ]
+
+# Check dimensions of the datasets
+dim(train_set)  
+dim(test_set)   
+```
+
+We can see from the dimensions of the train, validation, and test sets that we have 70% training data (0.7 \* 7032 = 4992) and 30% test data (0.3 \* 7093 = 2110).
+
+## **Model Fitting**
+
+### Exercise 7)
+
+```{r}
+set.seed(53882783)
+library(dplyr)
+# Train the logistic regression model
+log_model = glm(Churn ~ tenure + MonthlyCharges + TotalCharges,
+                      data = train_set, 
+                      family = binomial)
+
+# Summary of model
+summary(log_model)
+```
+
+### Exercise 8)
+
+Interpretation of coefficients:
+
+-   **Intercept (−1.653):** The intercept represents the expected log-odds of churn when all predictors (tenure, MonthlyCharges, and TotalCharges) are equal to zero. However, since a customer cannot have zero tenure or charges, this value serves as a baseline for our model. The negative value suggests that, on average, customers are less likely to churn.
+
+-   **Tenure (−0.06455):** For each additional month of tenure, the log-odds of churn decrease by 0.06455, holding all other variables constant. This negative coefficient indicates that customers with longer tenure are significantly less likely to churn. Each additional month of tenure reduces the likelihood of churn, suggesting that longer-term customers exhibit greater loyalty to the service.
+
+-   **MonthlyCharges (0.03043):** For each additional dollar increase in MonthlyCharges, the log-odds of churn increase by 0.03043, holding all other variables constant. This positive coefficient suggests that as monthly charges increase, customers are more likely to churn. Higher charges may lead to feelings of dissatisfaction or a perception of being overcharged for the service.
+
+-   **TotalCharges (0.0001139):** For each additional dollar increase in TotalCharges, the log-odds of churn increase by 0.0001139, holding all other variables constant. Similar to MonthlyCharges, the positive coefficient indicates that as the total amount charged to the customer increases, the likelihood of churn also increases. This suggests that customers who perceive higher total costs over time may be more inclined to leave the service.
+
+Summary: Tenure is negatively associated with churn, indicating that longer-tenured customers are less likely to leave. In contrast, both MonthlyCharges and TotalCharges are positively associated with churn; higher charges increase the likelihood of churn, suggesting that cost may significantly influence customers' decisions to terminate their service.
+
+### Exercise 9)
+
+```{r}
+set.seed(53882783)
+# Fitting new logistic regression model with previous predictors + InternetService
+log_model_v2 = glm(Churn ~ tenure + TotalCharges + Contract + InternetService,
+                    data = train_set,
+                       family = binomial)
+
+# Display model summary
+summary(log_model_v2)
+```
+
+Interpretation of coefficients:
+
+-   **Intercept (−0.1702):** The intercept represents the expected log-odds of churn when all predictors (tenure, TotalCharges, Contract, and InternetService) are equal to zero or at their reference categories. The coefficient is marginally significant with a p-value of 0.050873, indicating that it is close to the threshold of significance. The negative value suggests that, on average, customers are less likely to churn when other variables are not influencing the outcome.
+
+-   **Tenure (−0.05452):** For each additional month of tenure, the log-odds of churn decrease by 0.05452, holding all other variables constant. This negative coefficient indicates that customers with longer tenure are significantly less likely to churn. The predictor is highly significant with a p-value of 5.53e-15, suggesting that longer-term customers exhibit greater loyalty to the service.
+
+-   **TotalCharges (0.0002842):** For each additional dollar increase in TotalCharges, the log-odds of churn increase by 0.0002842, holding all other variables constant. This positive coefficient indicates that higher total charges are associated with a higher likelihood of churn. The predictor is also highly significant with a p-value of 0.000133, suggesting that customers with higher cumulative costs over time are more likely to leave the service.
+
+-   **Contract (One Year) (−0.9813):** Customers on a one-year contract are significantly less likely to churn than those on a month-to-month contract. The log-odds of churn decrease by about 0.9813 for one-year contracts. This predictor is highly significant with a p-value of 7.34e-15, indicating that longer contracts correlate with reduced churn rates.
+
+-   **Contract (Two Year) (−1.898):** Customers on a two-year contract are significantly less likely to churn compared to those on a month-to-month contract. The log-odds of churn decrease by about 1.898, which is highly significant with a p-value \< 2e-16. This indicates that the longer the contract, the lower the likelihood of churn.
+
+-   **InternetService (Fiber optic) (0.9339):** Customers with fiber optic service have higher log-odds of churn compared to those with other internet service options, with an increase of about 0.9339. This coefficient is highly significant with a p-value \< 2e-16, suggesting that fiber optic customers may have a higher tendency to churn.
+
+-   **InternetService (No) (−1.026):** Customers without internet service are significantly less likely to churn compared to those with other internet services, with a log-odds decrease of about 1.026. This predictor is highly significant with a p-value of 1.26e-12, indicating a protective effect against churn for customers without internet service.
+
+### Exercise 10)
+
+```{r}
+library(caret)
+library(class)
+set.seed(53882783)
+
+control_10fold = trainControl(method = "cv", number = 10)
+k_values = data.frame(k = seq(1, 50, by = 1)) 
+
+knn_model = train(Churn ~ tenure + TotalCharges + Contract + InternetService, 
+                          data = train_set,
+                           method = "knn",
+                          trControl = control_10fold,
+                           tuneGrid = k_values)
+
+# Display the results
+print(knn_model)
+plot(knn_model)
+```
+
+The optimal model uses a value of k = 31.
+
+### Exercise 11)
+
+```{r}
+set.seed(53882783)
+control_10fold_v2 = trainControl(method = "cv", number = 10)
+
+optimal_k = data.frame(k = knn_model$bestTune$k)
+knn_model_v2 = train(Churn ~ tenure + TotalCharges + Contract + InternetService, 
+                          data = train_set,
+                          method = "knn",
+                          trControl = control_10fold,
+                          tuneGrid = optimal_k)
+
+print(knn_model_v2)
+
+```
+
+### Exercise 12)
+
+Setting a seed is important in the K-Nearest Neighbors (KNN) algorithm when using methods like cross-validation, data splitting (train/test), or shuffling. These processes involve randomness, and setting a seed ensures reproducibility by controlling the random elements.
+
+-   **Data splitting:** When the data is split into training and validation sets (as done in cross-validation), the way this split occurs can be random. By setting a seed, we can ensure that each time the algorithm is run, the splits happen the same way.
+
+-   **Cross-validation:** KNN often uses cross-validation to evaluate performance across different subsets of the data. The division of the data into folds involves randomness, which can impact the performance results. A seed ensures the same folds are created each time.
+
+### Exercise 13)
+
+```{r}
+library(MASS)
+
+lda_model = lda(Churn ~ tenure + TotalCharges, data = train_set)
+
+# Display model summary
+summary(lda_model)
+```
+
+### Exercise 14)
+
+```{r}
+library(MASS)
+
+qda_model = qda(Churn ~ tenure + TotalCharges, data = train_set)
+
+# Display the model summary
+summary(qda_model)
+```
+
+## **Evaluation of Classification Models**
+
+### Exercise 15)
+
+```{r}
+# Exercise 7 - log_model
+logistic_pred_log_model = predict(log_model, newdata = test_set, type = "response")
+logistic_pred_class_log_model = ifelse(logistic_pred_log_model > 0.5, "Yes", "No")
+logistic_conf_matrix_log_model = confusionMatrix(factor(logistic_pred_class_log_model), factor(test_set$Churn))
+print(logistic_conf_matrix_log_model$table)
+
+# Exercise 9 - log_model_v2
+logistic_pred_log_model_v2 = predict(log_model_v2, newdata = test_set, type = "response")
+logistic_pred_class_log_model_v2 = ifelse(logistic_pred_log_model_v2 > 0.5, "Yes", "No")
+logistic_conf_matrix_log_model_v2 = confusionMatrix(factor(logistic_pred_class_log_model_v2), factor(test_set$Churn))
+print(logistic_conf_matrix_log_model_v2$table)
+
+# Exercise 10 - knn_model
+knn_predictions = predict(knn_model, newdata = test_set)
+knn_conf_matrix = confusionMatrix(knn_predictions, test_set$Churn)
+print(knn_conf_matrix$table)
+
+# Exercise 11 - knn_model_v2
+knn_pred_v2 = predict(knn_model_v2, newdata = test_set)
+knn_conf_matrix_v2 = confusionMatrix(knn_pred_v2, test_set$Churn)
+print(knn_conf_matrix_v2$table)
+
+# Exercise 13 - lda_model
+lda_pred = predict(lda_model, newdata = test_set)
+lda_conf_matrix = confusionMatrix(lda_pred$class, test_set$Churn)
+print(lda_conf_matrix$table)
+
+# Exercise 14 - qda_model
+qda_pred = predict(qda_model, newdata = test_set)
+qda_conf_matrix = confusionMatrix(qda_pred$class, test_set$Churn)
+print(qda_conf_matrix$table)
+```
+
+### Exercise 16)
+
+| Model                                    | Recall            |
+|------------------------------------------|-------------------|
+| Basic Logistic Regression, Exercise 7    | `r 248/(248+348)` |
+| My Logistic Regression Model, Exercise 9 | `r 267/(267+329)` |
+| KNN Model, Exercise 10                   | `r 136/(136+460)` |
+| Retrained KNN Model, Exercise 11         | `r 137/(137+459)` |
+| LDA, Exercise 13                         | `r 109/(109+487)` |
+| QDA, Exercise 14                         | `r 429/(429+167)` |
+
+### Exercise 17)
+
+```{r}
+library(boot)
+set.seed(53882783)
+# Defining a function to calculate recall
+recall_function = function(data, indices) {
+  sample_data = data[indices, ]  # Create a bootstrap sample
+  predictions = predict(qda_model, newdata = sample_data)  # Use your QDA model
+  conf_matrix = confusionMatrix(predictions$class, sample_data$Churn)
+  
+  # Calculate recall
+  recall = conf_matrix$byClass["Recall"]
+  return(recall)
+}
+
+# Create a bootstrap sample and calculate recall
+boot_results = boot(data = test_set, statistic = recall_function, R = 1000)  # R is the number of bootstrap samples
+
+# Calculate standard deviation of recall
+recall_sd = sd(boot_results$t)
+
+# Calculate 95% confidence interval
+ci_lower = quantile(boot_results$t, 0.025)
+ci_upper = quantile(boot_results$t, 0.975)
+
+# Print results
+cat("95% Confidence Interval for Recall:", ci_lower, "-", ci_upper, "\n")
+print(boot_results)
+```
