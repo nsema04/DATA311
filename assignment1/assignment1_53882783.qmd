@@ -1,0 +1,426 @@
+---
+title: "Assignment 1"
+subtitle: "DATA 311"
+author: "Noah Semashkewich"
+toc: true
+format: 
+  html:
+    embed-resources: true
+    df-print: paged
+editor: visual
+---
+
+# Assignment
+
+## Exploratory / Pre-Processing
+
+### Exercise 1)
+
+The abalone marine mollusk examination is both a regression problem, as well as a supervised learning problem.
+
+-   This is a regression problem because the task involves predicting age which is a continuous variable.
+
+-   This is a supervised learning problem because the data is labeled with measurements.
+
+### Exercise 2)
+
+```{r}
+setwd("~/DATA311/assignment1")
+abalone = read.csv("abalone.csv")
+str(abalone)
+```
+
+### Exercise 3)
+
+```{r}
+hist(abalone$Rings, 
+     breaks = seq(0, max(abalone$Rings), by = 1),  # Set breaks to 1
+     main = "Histogram of Abalone Rings (Age)", 
+     xlab = "Rings (Age)", 
+     ylab = "Frequency", 
+     col = "lightblue", 
+     border = "black")
+
+boxplot(abalone$Rings, 
+        main = "Boxplot of Abalone Rings (Age)", 
+        ylab = "Rings (Age)", 
+        col = "lightgreen")
+```
+
+This is a skewed normally distributed histogram
+
+-   Since the Rings variable is right-skewed, it could violate the assumption of normality of residuals in a linear regression model
+
+-   Outliers in the boxplot suggest there are abalones significantly older than most, but could violate homoscedasisity
+
+The right-skewed distribution and outliers in the Rings variable could violate the assumptions of normality and homoscedasticity in a linear model.
+
+### Exercise 4)
+
+```{r}
+set.seed(53882783)
+
+# Count half of the rows
+sampleSize = floor(0.5 * nrow(abalone))
+
+# Splitting rowss into 2 halves
+rows = sample(seq_len(nrow(abalone)), size = sampleSize)
+abTrain = abalone[rows, ]
+abTest = abalone[-rows, ]
+abTrain
+abTest
+```
+
+## Simple Linear Regression
+
+### Exercise 5)
+
+```{r}
+abTrain_lm = lm(Rings ~ Length, data = abTrain)
+summary(abTrain_lm)
+```
+
+There is a **significant** relationship between the **Length** and **Rings** Variables, as indicated by the highly significant p-value for the **Length** coefficient and the positive estimate.
+
+### Exercise 6)
+
+The coefficient of determination (R²), is 0.3002. This means that approximately **30.02%** of the variance in the number of **Rings** can be explained by the **Length** of the abalones.
+
+### Exercise 7)
+
+```{r}
+plot(abTrain$Length, abTrain$Rings,
+     main = "Scatter Plot of Rings vs. Length",
+     xlab = "Length",
+     ylab = "Rings",
+     pch = 19,
+     col = "blue")
+
+abline(abTrain_lm, col = "red", lwd = 2)  # lwd = line width
+```
+
+### Exercise 8)
+
+The scatter plot shows that the points follow a linear trend along the fitted regression line, suggesting that the assumption of linearity is satisfied. Furthermore, the spread of the points around the line remains consistent across all, indicating that the homoscedasticity assumption is also satisfied. Therefore, the model appears to meat the necessary assumptions for linear regression.
+
+### Exercise 9)
+
+```{r}
+plot(abTrain_lm, which = 1, pch = 1, cex = 0.3)
+
+```
+
+The **Residuals Vs. Fitted** plot shows that there are patterns in the data. This could mean that the relationship between the two variables is not completely linear.
+
+## Multiple Linear Regression
+
+### Exercise 10)
+
+```{r}
+abTrain_poly = lm(Rings ~ Length + I(Length^2), data = abTrain)
+summary(abTrain_poly)
+
+#1) Residuals Vs. Fitted
+plot(abTrain_poly, which = 1, main = "Residuals Vs. Fitted")
+abline(h = 0, col = "red", lty = 2) 
+
+#2) Normal Q-Q
+plot(abTrain_poly, which = 2, main = "Normal Q-Q")
+abline(0, 1, col = "red", lty = 2) 
+
+#3) Scale-Location
+plot(abTrain_poly, which = 3, main = "Scale-Location")
+abline(h = 0, col = "red", lty = 2)
+
+#4) Residuals Vs. Leverage
+plot(abTrain_poly, which = 5, main = "Residuals vs Leverage")
+```
+
+1.  **Assessment of the P-Value**
+
+    Coefficients and P-values
+
+    -   Intercept:
+
+        -   Estimate: -1.0000
+
+        -   P-value: -0.191 (not significant)
+
+    -   Length:
+
+        -   Estimate: 28.7268
+
+        -   P value: \< 2e - 16 (highly significant)
+
+    -   I(length\^2)
+
+        -   Estimate: -14.0689
+
+        -   P-value: 1.31e - 05 (highly significant)
+
+    Interpretation: The p-value for the quadratic term I(Length\^2) is 1.31e - 05, which is much less than 0.05. This indicates that the quadratic term is statistically significant. This also suggests that the relationship between Rings and Length is not purely linear and that including the quadratic term improves the fit.
+
+2.  **Adjusted R-squared Value**
+
+    -   Multiple R-squared: 0.3065
+
+    -   Adjusted R-squared: 0.3058
+
+    The adjusted R-squared value of 0.3059 indicates that approximately 30.58% of the variance in the response variable **Rings** can be explained by the predictors **Length** and **I(Length\^2)**. This value suggests that the model explains a moderate amount of the variance in the data
+
+3.  **Potential Violations**
+
+    -   Linearity: The linearity has been violated because the plot shows a large amount of patterns. This makes the model non-linear
+
+    -   Homoscedasticity: The homoscedasticity has been violated because the Scale-Location plot shows no evident variance.
+
+    -   Normality: The normality has been violated because the Q-Q plot shows the residual points are not along the dashed line.
+
+    -   Independence: The independence has not been violated. There are no points outside of Cook's distance, so the independence does not have a large impact on the model.
+
+### Exercise 11)
+
+```{r}
+abTrain_sex = lm(Rings ~ Length + Sex, data = abTrain)
+summary(abTrain_sex)
+```
+
+-   The coefficient for Length shows that for each unit increase , the number of rings increases by approximately 12.30, holding Sex constant.
+
+-   The coefficient for SexI, with a p-value of 7.52 \* 10\^-15 suggests that inter sex abalones have, on average, 1.33 fewer rings than the rederence category (Females), which is statistically significant.
+
+-   The coefficient for SexM is not statistically significant with a p-value of 0.529, indicating that there is no strong evidence to suggest that the Male abalones differ in age (number of rings) compared to Females when controlling for Length
+
+Adjusted R-Square:
+
+-   Multiple R-Squared: 0.3243
+
+-   Adjusted R-Squared: 0.3234
+
+Comparing with the previous model, the adjusted R-squared increased 0.3058 to 0.3234 with the addition of **Sex**, indicating an improvement in the model fit. This suggests that including the Sex predictor explains more variance in the **Rings** outcome.
+
+Conclusion: The inclusion of **Sex** provides significant insight into the age of abalones, particularly for infant individuals. The significant p-value for SexI suggests a notable impact, while SexM does not show a significant effect.
+
+### Exercise 12)
+
+Females:
+
+-   Rings = 4.01245 + 12.29552 \* Length
+
+Infant:
+
+-   Rings = 2.68224 + 12.29552 \* Length
+
+Males
+
+-   Rings = 3.92201 + 12.29552 \* Length
+
+### Exercise 13)
+
+The reference level for the model fitted in Exercise 11 is Female. The output giving coefficients for SexI and SexM, but no coefficient for SexF implies that Female is the reference category, and the other levels (infant and male) are being compared to it.
+
+### Exercise 14)
+
+Based on the model output from Exercise 11, we can interpret the coefficients for Sex
+
+-   **Females**: The reference group, with the highest intercept, suggests that female abalones tend to have the highest number of rings on average.
+
+-   **Males**: The coefficient for **Male** is −0.09044, indicating that males have slightly fewer rings compared to females, but this difference is not statistically significant (P-value = 0.529).
+
+-   **Infant (Infant)**: The coefficient for **Infant** (which could be inferred as infants) is −1.33021, meaning they tend to have significantly fewer rings compared to females.
+
+In conclusion, females tend to have the oldest average age, as indicated by the model.
+
+### Exercise 15)
+
+```{r}
+# abTrain with Whole Weight
+abTrain_withWholeWeight <- lm(Rings ~ Length + Sex + Whole.weight, data = abTrain)
+abTrain_forward <- step(abTrain_sex, 
+                        scope = list(lower = abTrain_sex, 
+                                     upper = abTrain_withWholeWeight), 
+                        direction = "forward")
+summary(abTrain_forward)
+
+```
+
+In the forward selection model, I selected **Whole.weight**, which represents the abalones weight in grams.
+
+## Multiple Linear Regression
+
+### Exercise 16)
+
+```{r}
+cor_matrix = cor(abTrain[, -which(names(abTrain) == "Sex")])
+print(cor_matrix)
+
+cor_matrix[lower.tri(cor_matrix)] = NA  # Set the lower triangle and diagonal to NA
+highest_corr_value = max(cor_matrix, na.rm = TRUE)  # Find the max correlation value
+highest_corr_pair = which(cor_matrix == highest_corr_value, arr.ind = TRUE)  # Get the indices
+
+var1 = rownames(cor_matrix)[highest_corr_pair[1]]
+var2 = colnames(cor_matrix)[highest_corr_pair[2]]
+
+cat("The highest correlation is between:", var1, "and", var2, "with a correlation of", highest_corr_value, "\n")
+```
+
+The highest correlation is between **Length** and **Diameter**, meaning as one variable increases, the other variable increases with almost direct proportion. Some implications of multicollinearity could be:
+
+-   Inflated standard errors for the coefficients of correlated predictors
+
+-   Estimates could become unstable and sensitive to small changes in the model or data.
+
+-   Becomes unclear how much each predictor is contributing to the response.
+
+### Exercise 17)
+
+```{r}
+abTrain_mlr = lm(Rings ~ Length + Whole.weight, data = abTrain)
+summary(abTrain_mlr)
+```
+
+In **Exercise 5, we use a linear model using Rings** as a response variable and **Length** as a predictor variable:
+
+-   **Multiple R-Squared:** 0.3002
+
+-   **Adjusted R-Squared: 0.2998**
+
+In **Exercise 17**, we use a linear model with **Rings** as a response variable and **Length** and **Whole Weight** as predictor variables:
+
+-   **Multiple R-Squared:** 0.3075
+
+-   **Adjusted R-Squared:** 0.3069
+
+The **R-Squared** Values: The **Multiple R-Squared** Value increased from 0.3002 to 0.3075, suggesting that adding the **Whole Weight** variable provided a small improvement in the model's explanatory power.
+
+The **Adjusted R-Squared** Values: The increase from 0.2998 to 0.3069 in the **Adjusted R-Squared** value accounts for the addition of the second predictor and indicates the additional predictor **Whole Weight** improves the model fit while considering the model complexity.
+
+### Exercise 18)
+
+```{r}
+abTrain_interaction = lm(Rings ~ Length * Whole.weight, data = abTrain)
+summary(abTrain_interaction)
+```
+
+The significant interaction term suggests that the effect of **Length** on the number of **Rings** varies depending on the level of **Whole Weight**. This implies that as the weight of the abalone increases, the benefit of increasing length on predicted age (measured by \# of Rings) decreases.
+
+### Exercise 19)
+
+```{r}
+full_model = lm(Rings ~ ., data = abTrain)
+summary(full_model)
+```
+
+The significant predictor variables are:
+
+1.  **SexI**: P-value $= 5.75 \times 10^{-07}$
+2.  **Length**: P-value = 0.00803
+3.  **Diameter**: P-value $= 5.37 \times 10^{-06}$
+4.  **Height**: P-value $= 1.15 \times 10^{-15}$
+5.  **Whole Weight**: P-value $= < 2 \times 10^{-16}$
+6.  **Viscera Weight**: P-value $= 9.49 \times 10^{-09}$
+7.  **Shell Weight**: P-value $= 1.38 \times 10^{-05}$
+
+### Exercise 20)
+
+Two potential predictors that could be excluded from the model are:
+
+1.  **SexM** (Male)
+    -   This predictor is not statistically significant (P-value = 0.58701), indicating that it does not provide useful information in predicting the response variable (**Rings**), compared to the reference group (Female).
+
+    -   Excluding this predictor may simplify the model without significantly affecting its performance, as it is unlikely to contribute to explaining variance in the response variable.
+2.  **Shucked Weight**
+    -   Although this predictor is significant (P-value \< 0.001), it has a negative coefficient (-19.12010) suggesting an inverse relationship with **Rings**. If this variable is heavily correlated with other weight measures, it could introduce multicollinearity.
+
+    -   If **Shucked Weight** is highly correlated with other weight predictors, its exclusion could reduce multicollinearity, potentially improving the stability of coefficient of estimates for remaining predictors.
+
+### Exercise 21)
+
+```{r}
+new_model <- lm(Rings ~ Length + Diameter + Height + Whole.weight + Shell.weight, data = abTrain)
+summary(new_model)
+
+plot(new_model, which = 1)  # Residuals vs Fitted
+plot(new_model, which = 2)  # Normal Q-Q
+plot(new_model, which = 3)  # Scale-Location
+plot(new_model, which = 4)  # Cook's distance
+
+```
+
+I chose this model because I excluded variables that were not statistically significant, starting with **SexM** and **Shell Weight**, and then also excluding **Viscera Weight** as it simplified the model. My model performs better than both exercise 5 and 17 with an Adjusted R-squared of 0.4725, but does not outperform the full model from exercise 19.
+
+### Exercise 22)
+
+| Exercise Number | Adjusted R-squared | RSE                                        | MSE (Test)                                                                      |
+|-----------------|--------------------|--------------------------------------------|---------------------------------------------------------------------------------|
+| Exercise 5      | 0.2998             | `r summary(abTrain_lm)$sigma`              | `r mean((predict(abTrain_lm, newdata = abTest) - abTest$Rings)^2)`              |
+| Exercise 10     | 0.3058             | `r summary(abTrain_poly)$sigma`            | `r mean((predict(abTrain_poly, newdata = abTest) - abTest$Rings)^2)`            |
+| Exercise 11     | 0.3234             | `r summary(abTrain_sex)$sigma`             | `r mean((predict(abTrain_sex, newdata = abTest) - abTest$Rings)^2)`             |
+| Exercise 15     | 0.3271             | `r summary(abTrain_withWholeWeight)$sigma` | `r mean((predict(abTrain_withWholeWeight, newdata = abTest) - abTest$Rings)^2)` |
+| Exercise 17     | 0.3069             | `r summary(abTrain_mlr)$sigma`             | `r mean((predict(abTrain_mlr, newdata = abTest) - abTest$Rings)^2)`             |
+| Exercise 18     | 0.347              | `r summary(abTrain_interaction)$sigma`     | `r mean((predict(abTrain_interaction, newdata = abTest) - abTest$Rings)^2)`     |
+| Exercise 19     | 0.542              | `r summary(full_model)$sigma`              | `r mean((predict(full_model, newdata = abTest) - abTest$Rings)^2)`              |
+| Exercise 21     | 0.4725             | `r summary(new_model)$sigma`               | `r mean((predict(full_model, newdata = abTest) - abTest$Rings)^2)`              |
+
+### Exercise 23)
+
+The **new_model** has the highest adjusted **R-Squared** (0.4275) and the lowest **RSE** (2.371) among the models summarized. This indicates that it explains a greater proportion of the variability in the response variable compared to the other models while also showing better predictive accuracy.
+
+-   **Best fit:** It has the highest Adjusted R-squared, meaning it explains the variability in the response variable more effectively than the others.
+
+-   **Predictive Performance**: It has the lowest RSE, indicating that its predictions are closer to the actual values, which is crucial for applications relying on accurate forecasts.
+
+Thus, I would recommend the new_model as the best choice among the summarized models due to its superior performance metrics.
+
+## KNN Regression
+
+```{r}
+library(caret)
+knn_mse_test = NULL
+
+for (k in c(10, 50, 100, 200, 300)){
+  kmod <- knnreg(Rings ~ Length, data = abTrain, k = k)
+  yhat = predict(kmod, abTest)
+  knn_mse_test[k] = mean((abTest$Rings - yhat)^2)
+}
+
+plot(knn_mse_test, type = "b", ylab = "MSE test", xlab = "k", main = "KNN regression")
+```
+
+### Exercise 24)
+
+-   **k = 10**: The MSE is higher than the others, indicating that it is over-fitting the data. This also suggests high-variance and low bias.
+
+-   **k =50**: The MSE is much lower than the previous **k**, suggesting an improvement in the balance between bias and variance. Increasing the **k** value helps reduce the variance and optimizes the model's performance.
+
+-   **k = 100**: The MSE is the lowest out of all of the values, indicating the most optimal variance-bias trade-off.
+
+-   **k = 200**: The MSE starts to increase again, suggesting under-fitting in the model. The variance-bias trade-off stays at an optimal position.
+
+-   **k = 300**: The MSE rises slightly again but stays in the optimal region.
+
+The most optimal model lies at both **k = 50** and again at **k = 200**. The variance-bias balance is optimal for the model's performance at these points.
+
+### Exercise 25)
+
+**Explanation of Over-fitting**:
+
+1.  Sensitivity to noise: With a small **k**, the model considers only a few neighbors (in this case, 10) to make predictions. This means it is very sensitive to fluctuations or noise in the data.
+    -   As a result, it may capture random variations rather than true underlying patterns.
+2.  Complexity of the Model
+    -   A low value of **k** allows the model to fit very closely to the training data, creating a complex decision boundary that reflects the training set.
+3.  Bias-Variance Trade-off: A small **k** typically results in low bias (model fits data very closely) and high variance.
+
+Conclusion: A relatively high test at MSE at **k = 10** suggests that the KNN model is over-fitting the training data. The model's ability to predict well on the training set does not translate to the test set, indicating that it captures too much noise and lacks the ability to generalize new data.
+
+### Exercise 26)
+
+**Recommended Value for k**:
+
+1.  Balance between bias and variance: At **k = 100**, the model is likely to achieve a good balance between bias and variance. a higher **k** reduces sensitivity to noise which is an improvement.
+2.  Lower MSE: The MSE values show that **k = 100** results in a lower test MSE compared to lower **k** values. This means model can effectively capture the underlying trend.
+3.  Avoiding over-fitting: Choosing a smaller **k**, like 10, typically leads to over-fitting, where the model captures noise and specifics of the training data rather than general trends.
+
+**Conclusion:**
+
+-   In summary, based on the observed MSE values, **k = 100** appears to offer the best compromise between bias and variance. **k = 100** minimizes test MSE, enhancing the model's ability to generalize new data.
